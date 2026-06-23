@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BDR Manager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1f2435;
+    --surface3: #252b3d;
+    --border: #2a3050;
+    --border2: #3a4060;
+    --accent: #4f7cff;
+    --accent2: #7b9fff;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e8eaf2;
+    --text2: #9aa3bf;
+    --text3: #5a6480;
+    --phase-ramp: #8b5cf6;
+    --phase-dev: #3b82f6;
+    --phase-ten: #22c55e;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+  /* LAYOUT */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 260px; min-width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; overflow-y: auto; background: var(--bg); }
+
+  /* SIDEBAR */
+  .sidebar-header { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+  .sidebar-title { font-size: 17px; font-weight: 700; }
+  .sidebar-nav { padding: 12px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+  .nav-btn { background: none; border: none; color: var(--text2); font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 8px 10px; border-radius: 6px; cursor: pointer; text-align: left; transition: all 0.15s; display: flex; align-items: center; gap: 8px; }
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active { background: var(--surface3); color: var(--accent2); }
+  .sidebar-section-label { padding: 14px 18px 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); }
+  .bdr-list { flex: 1; overflow-y: auto; padding: 0 10px 10px; }
+  .bdr-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+  .bdr-item:hover { background: var(--surface2); }
+  .bdr-item.active { background: var(--surface2); border-color: var(--border2); }
+  .bdr-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .bdr-item-info { flex: 1; min-width: 0; }
+  .bdr-item-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bdr-item-meta { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .bdr-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .add-bdr-btn { margin: 0 10px 12px; background: none; border: 1px dashed var(--border2); color: var(--text3); font-family: var(--sans); font-size: 12px; font-weight: 500; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.15s; width: calc(100% - 20px); }
+  .add-bdr-btn:hover { border-color: var(--accent); color: var(--accent2); background: rgba(79,124,255,0.06); }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* PAGE HEADER */
+  .page-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .page-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+  .page-title { font-size: 24px; font-weight: 700; }
+  .page-subtitle { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* DASHBOARD */
+  .dashboard-grid { padding: 24px 32px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; border-bottom: 1px solid var(--border); }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .team-table-section { padding: 24px 32px; }
+  .section-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+  .team-table { width: 100%; border-collapse: collapse; }
+  .team-table th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .team-table td { padding: 11px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .team-table tr:last-child td { border-bottom: none; }
+  .team-table tr:hover td { background: var(--surface); cursor: pointer; }
+
+  /* PILLS */
+  .pill { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+  .pill-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .pill-yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .pill-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .pill-blue { background: rgba(79,124,255,0.15); color: var(--accent2); }
+
+  /* PROFILE */
+  .profile-header { padding: 24px 32px 20px; border-bottom: 1px solid var(--border); }
+  .profile-top { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .profile-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+  .profile-name { font-size: 22px; font-weight: 700; }
+  .profile-meta { font-size: 13px; color: var(--text2); margin-top: 3px; }
+  .profile-actions { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+  /* PHASE DROPDOWN */
+  .phase-select-wrap { display: flex; align-items: center; gap: 8px; }
+  .phase-select-label { font-size: 12px; color: var(--text3); font-weight: 500; }
+  select.phase-sel {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 28px 6px 10px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6480'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    transition: border-color 0.15s;
+  }
+  select.phase-sel:focus { border-color: var(--accent); }
+  select.phase-sel.ramp { color: var(--phase-ramp); }
+  select.phase-sel.developing { color: var(--phase-dev); }
+  select.phase-sel.tenured { color: var(--phase-ten); }
+
+  /* BTNS */
+  .btn { padding: 8px 14px; border-radius: 7px; font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #6b93ff; }
+  .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--border2); }
+  .btn-ghost { background: none; color: var(--text3); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text2); border-color: var(--border2); }
+  .btn-danger { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+  .btn-danger:hover { background: rgba(239,68,68,0.2); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* KPI CARDS */
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 10px; }
+  .kpi-value { font-size: 28px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+  .kpi-avg { font-size: 12px; color: var(--text3); margin-top: 5px; }
+  .kpi-floor { font-size: 11px; margin-top: 4px; }
+  canvas.spark { width: 100%; height: 36px; display: block; margin-top: 10px; }
+
+  /* PROFILE TABS */
+  .profile-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 32px; }
+  .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text3); font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 10px 14px; cursor: pointer; transition: all 0.15s; margin-bottom: -1px; }
+  .tab-btn:hover { color: var(--text2); }
+  .tab-btn.active { color: var(--accent2); border-bottom-color: var(--accent); }
+  .tab-content { display: none; padding: 24px 32px; }
+  .tab-content.active { display: block; }
+
+  /* TIMELINE */
+  .timeline-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .timeline-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .phase-labels { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .phase-label-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .phase-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .milestone-track { display: flex; position: relative; margin: 6px 0 18px; }
+  .milestone-track::before { content: ''; position: absolute; top: 14px; left: 0; right: 0; height: 2px; background: var(--border); z-index: 0; }
+  .milestone-item { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+  .milestone-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--mono); transition: all 0.2s; cursor: default; }
+  .milestone-dot.reached { border-color: var(--green); color: var(--green); background: rgba(34,197,94,0.1); }
+  .milestone-dot.current { border-color: var(--accent); color: var(--accent2); background: rgba(79,124,255,0.12); box-shadow: 0 0 0 4px rgba(79,124,255,0.15); }
+  .milestone-dot.future { color: var(--text3); }
+  .milestone-month { font-size: 10px; color: var(--text3); margin-top: 6px; font-weight: 600; }
+  .milestone-phase-tag { font-size: 10px; margin-top: 2px; font-weight: 500; }
+  .tooltip-wrap { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .tooltip-tip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--surface3); border: 1px solid var(--border2); border-radius: 6px; padding: 8px 10px; font-size: 11px; color: var(--text2); white-space: nowrap; z-index: 50; min-width: 160px; text-align: left; pointer-events: none; }
+  .tooltip-wrap:hover .tooltip-tip { display: block; }
+  .progress-details { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .progress-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .progress-detail-row:last-child { border-bottom: none; }
+  .progress-detail-label { color: var(--text2); }
+  .progress-detail-value { font-weight: 600; font-family: var(--mono); }
+
+  /* MILESTONE EDITOR (per-rep) */
+  .ms-editor { margin-bottom: 24px; }
+  .ms-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .ms-editor-title { font-size: 14px; font-weight: 600; }
+  .ms-override-note { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .ms-row { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ms-row-label { font-size: 12px; font-weight: 600; color: var(--text2); min-width: 80px; }
+  .ms-field { display: flex; flex-direction: column; gap: 3px; }
+  .ms-field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); }
+  .inp-sm { background: var(--surface3); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 5px 8px; outline: none; width: 80px; transition: border-color 0.15s; }
+  .inp-sm:focus { border-color: var(--accent); }
+  .inp-sm.wide { width: 130px; }
+  .inp-sm.xwide { width: 180px; font-family: var(--sans); }
+  select.inp-sm { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6480'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 6px center; padding-right: 22px; cursor: pointer; width: 120px; }
+  .overridden-badge { font-size: 10px; color: var(--accent2); background: rgba(79,124,255,0.1); border: 1px solid rgba(79,124,255,0.2); border-radius: 3px; padding: 2px 5px; font-weight: 600; }
+  .reset-override-btn { background: none; border: none; color: var(--text3); font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0; }
+  .reset-override-btn:hover { color: var(--text2); }
+
+  /* WEEKS LOG */
+  .weeks-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .weeks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .week-entry { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .week-entry-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; user-select: none; }
+  .week-entry-header:hover { background: rgba(255,255,255,0.02); }
+  .week-label { font-size: 12px; font-weight: 700; font-family: var(--mono); color: var(--text2); min-width: 72px; }
+  .week-kpis { display: flex; gap: 14px; margin-left: auto; }
+  .week-kpi { font-size: 12px; font-family: var(--mono); }
+  .week-kpi span { color: var(--text3); font-family: var(--sans); font-size: 11px; }
+  .week-chevron { color: var(--text3); font-size: 11px; margin-left: 4px; transition: transform 0.2s; }
+  .week-entry.open .week-chevron { transform: rotate(90deg); }
+  .week-entry-body { display: none; padding: 0 16px 14px; border-top: 1px solid var(--border); }
+  .week-entry.open .week-entry-body { display: block; }
+  .week-kpi-row { display: flex; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+  .week-kpi-group { display: flex; flex-direction: column; gap: 4px; }
+  .week-kpi-group label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); }
+  .inp { background: var(--surface3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 14px; padding: 7px 10px; outline: none; transition: border-color 0.15s; width: 120px; }
+  .inp:focus { border-color: var(--accent); }
+  .inp.wide { width: 100%; font-family: var(--sans); font-size: 13px; }
+  .inp.narrow { width: 90px; }
+  textarea.inp { resize: vertical; min-height: 70px; width: 100%; line-height: 1.5; font-family: var(--sans); }
+  .flag-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+  .flag-btn { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid transparent; background: var(--surface3); color: var(--text3); transition: all 0.15s; }
+  .flag-btn.active-on-track { background: rgba(34,197,94,0.15); color: var(--green); border-color: rgba(34,197,94,0.3); }
+  .flag-btn.active-watch { background: rgba(245,158,11,0.15); color: var(--yellow); border-color: rgba(245,158,11,0.3); }
+  .flag-btn.active-needs-coaching { background: rgba(239,68,68,0.15); color: var(--red); border-color: rgba(239,68,68,0.3); }
+
+  /* SETTINGS VIEW */
+  .settings-wrap { padding: 28px 32px; max-width: 680px; }
+  .settings-section { margin-bottom: 36px; }
+  .settings-section-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 16px; }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 13px; font-weight: 500; }
+  .settings-row-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .global-ms-row { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .add-ms-btn { background: none; border: 1px dashed var(--border2); color: var(--text3); font-family: var(--sans); font-size: 12px; padding: 8px 14px; border-radius: 7px; cursor: pointer; transition: all 0.15s; margin-top: 6px; }
+  .add-ms-btn:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 12px; padding: 24px; width: 440px; max-width: 95vw; }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 6px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+  .swatch.selected { border-color: #fff; transform: scale(1.15); }
+
+  /* MISC */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .flash { position: fixed; bottom: 20px; right: 20px; z-index: 200; background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 16px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .flash.show { opacity: 1; }
+  select.inp { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6480'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; cursor: pointer; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .sidebar-footer { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+  .footer-btn { flex: 1; background: none; border: 1px solid var(--border); color: var(--text3); font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 7px 4px; border-radius: 6px; cursor: pointer; transition: all 0.15s; text-align: center; display: block; }
+  .footer-btn:hover { border-color: var(--border2); color: var(--text2); background: var(--surface2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">Bisnow</div>
+      <div class="sidebar-title">BDR Manager</div>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard">📊 Team Dashboard</button>
+      <button class="nav-btn" onclick="showView('settings')" id="nav-settings">⚙️ Global Settings</button>
+    </div>
+    <div class="sidebar-section-label">BDR Reps</div>
+    <div class="bdr-list" id="bdrList"></div>
+    <button class="add-bdr-btn" onclick="openAddBDR()">+ Add BDR</button>
+    <div class="sidebar-footer">
+      <button class="footer-btn" onclick="exportData()">⬇ Export Backup</button>
+      <label class="footer-btn">⬆ Import Backup<input type="file" accept=".json" style="display:none" onchange="importData(event)"></label>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Overview</div>
+          <div class="page-title">Team Dashboard</div>
+          <div class="page-subtitle" id="dashSubtitle"></div>
+        </div>
+      </div>
+      <div class="dashboard-grid" id="dashGrid"></div>
+      <div class="team-table-section">
+        <div class="section-title">Rep Snapshot — Last 4 Weeks Avg</div>
+        <table class="team-table">
+          <thead><tr>
+            <th>Rep</th><th>Phase</th><th>Months In</th>
+            <th>Mtgs Set (avg)</th><th>vs. Floor</th>
+            <th>$ Closed (avg)</th><th>Last Flag</th>
+          </tr></thead>
+          <tbody id="teamTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="view" id="view-profile">
+      <div id="profileContent"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div class="settings-wrap">
+        <div class="page-eyebrow" style="margin-bottom:4px">Global Configuration</div>
+        <div class="page-title" style="margin-bottom:6px">Settings & Default Milestones</div>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:24px">These are the team-wide defaults. You can override milestones per rep on each rep's profile.</p>
+
+        <div class="settings-section">
+          <div class="settings-section-title">KPI Floors</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Meetings Set — Weekly Floor</div>
+              <div class="settings-row-desc">Every rep, every week, regardless of tenure.</div>
+            </div>
+            <input class="inp narrow" type="number" id="floorMeetings" min="0">
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">$ Closed — Weekly Floor</div>
+              <div class="settings-row-desc">0 = no floor enforced.</div>
+            </div>
+            <input class="inp narrow" type="number" id="floorClosed" min="0">
+          </div>
+          <div style="margin-top:14px"><button class="btn btn-primary" onclick="saveFloors()">Save Floors</button></div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Default Milestone Template</div>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:14px">New reps inherit these. Existing reps with no overrides also use these.</p>
+          <div id="globalMsEditor"></div>
+          <button class="add-ms-btn" onclick="addGlobalMilestone()">+ Add Milestone</button>
+          <div style="margin-top:14px"><button class="btn btn-primary" onclick="saveGlobalMilestones()">Save Milestones</button></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ADD BDR MODAL -->
+<div class="modal-overlay" id="addBDRModal">
+  <div class="modal">
+    <div class="modal-title">Add New BDR</div>
+    <div class="modal-field"><label>Full Name</label><input class="inp wide" type="text" id="newBDRName" placeholder="Alex Johnson"></div>
+    <div class="modal-field"><label>Start Date</label><input class="inp wide" type="date" id="newBDRStart"></div>
+    <div class="modal-field"><label>Avatar Color</label><div class="swatch-row" id="addSwatchRow"></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('addBDRModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddBDR()">Add Rep</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT BDR MODAL -->
+<div class="modal-overlay" id="editBDRModal">
+  <div class="modal">
+    <div class="modal-title">Edit Rep</div>
+    <div class="modal-field"><label>Full Name</label><input class="inp wide" type="text" id="editBDRName"></div>
+    <div class="modal-field"><label>Start Date</label><input class="inp wide" type="date" id="editBDRStart"></div>
+    <div class="modal-field"><label>Avatar Color</label><div class="swatch-row" id="editSwatchRow"></div></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteBDR()" style="margin-right:auto">Delete Rep</button>
+      <button class="btn btn-secondary" onclick="closeModal('editBDRModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmEditBDR()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+const SK = 'bdr_crm_v3';
+const COLORS = ['#4f7cff','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444','#06b6d4','#a855f7'];
+const PHASES = ['Ramp','Developing','Tenured'];
+const PHASE_COLORS = { Ramp: 'var(--phase-ramp)', Developing: 'var(--phase-dev)', Tenured: 'var(--phase-ten)' };
+
+const DEFAULT_MILESTONES = [
+  { id:1,  month:1,  phase:'Ramp',       label:'M1',  meetingsTarget:15, closedTarget:0,     notes:'Learning product, shadowing calls' },
+  { id:2,  month:2,  phase:'Ramp',       label:'M2',  meetingsTarget:18, closedTarget:5000,  notes:'First solo sequences' },
+  { id:3,  month:3,  phase:'Ramp',       label:'M3',  meetingsTarget:20, closedTarget:10000, notes:'Ramping toward floor' },
+  { id:4,  month:4,  phase:'Ramp',       label:'M4',  meetingsTarget:25, closedTarget:15000, notes:'Should hit 25/wk floor' },
+  { id:5,  month:6,  phase:'Developing', label:'M6',  meetingsTarget:25, closedTarget:25000, notes:'Consistent floor, quality improving' },
+  { id:6,  month:8,  phase:'Developing', label:'M8',  meetingsTarget:25, closedTarget:40000, notes:'Full proficiency' },
+  { id:7,  month:12, phase:'Tenured',    label:'M12', meetingsTarget:25, closedTarget:60000, notes:'Tenured contributor' },
+];
+
+function loadData() {
+  try { const r = localStorage.getItem(SK); if (r) return JSON.parse(r); } catch(e) {}
+  return { bdrs: [], globalMilestones: DEFAULT_MILESTONES, floors: { meetings: 25, closed: 0 }, nextId: 1 };
+}
+function saveData() { localStorage.setItem(SK, JSON.stringify(state)); }
+let state = loadData();
+
+// Migrate old 'pipeline' key → 'closed' if needed
+state.bdrs.forEach(b => {
+  (b.weeks||[]).forEach(w => {
+    if (w.pipeline !== undefined && w.closed === undefined) { w.closed = w.pipeline; delete w.pipeline; }
+  });
+});
+if (state.floors.pipeline !== undefined && state.floors.closed === undefined) {
+  state.floors.closed = state.floors.pipeline; delete state.floors.pipeline;
+}
+
+// Per-rep: get effective milestones (override or global)
+function getRepMilestones(bdr) {
+  if (bdr.milestonesOverride && bdr.milestonesOverride.length) return bdr.milestonesOverride;
+  return state.globalMilestones;
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function initials(name) { return name.split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2); }
+function monthsIn(d) { if (!d) return 0; const s=new Date(d),n=new Date(); return Math.max(0,(n.getFullYear()-s.getFullYear())*12+(n.getMonth()-s.getMonth())); }
+function phaseColor(p) { return PHASE_COLORS[p] || 'var(--text3)'; }
+function avgKpi(bdr, key, n=4) {
+  const ws = [...(bdr.weeks||[])].sort((a,b)=>new Date(b.weekStart)-new Date(a.weekStart)).slice(0,n);
+  if (!ws.length) return null;
+  return ws.reduce((s,w)=>s+(parseFloat(w[key])||0),0)/ws.length;
+}
+function fmt$(n) {
+  if (n===null||n===undefined||isNaN(n)) return '—';
+  if (n>=1000000) return '$'+(n/1000000).toFixed(1)+'M';
+  if (n>=1000) return '$'+(n/1000).toFixed(0)+'K';
+  return '$'+n;
+}
+function fmtN(n) { if (n===null||n===undefined||isNaN(n)) return '—'; return parseFloat(n.toFixed(1)).toString(); }
+function weekOf(ds) { const d=new Date(ds); return `Wk of ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`; }
+function flash(msg) { const e=document.getElementById('flash'); e.textContent=msg; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),2000); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ═══════════════════════════════════════
+// SPARKLINE
+// ═══════════════════════════════════════
+function drawSparkline(canvas, values, color='#4f7cff', floor=null) {
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.getBoundingClientRect();
+  if (!rect.width) return;
+  canvas.width=rect.width*dpr; canvas.height=36*dpr;
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  const w=rect.width,h=36;
+  if (!values||values.length<2) { ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke(); return; }
+  const allVals=[...values,floor].filter(v=>v!=null);
+  const mn=Math.min(...allVals)*0.85, mx=Math.max(...allVals)*1.1||1, rng=mx-mn||1;
+  const xs=values.map((_,i)=>(i/(values.length-1))*w);
+  const ys=values.map(v=>h-((v-mn)/rng)*(h-6)-3);
+  if (floor!==null) {
+    const fy=h-((floor-mn)/rng)*(h-6)-3;
+    ctx.setLineDash([3,3]); ctx.strokeStyle='rgba(245,158,11,0.4)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(w,fy); ctx.stroke(); ctx.setLineDash([]);
+  }
+  const g=ctx.createLinearGradient(0,0,w,0); g.addColorStop(0,color+'80'); g.addColorStop(1,color);
+  ctx.strokeStyle=g; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); xs.forEach((x,i)=>i===0?ctx.moveTo(x,ys[i]):ctx.lineTo(x,ys[i])); ctx.stroke();
+  ctx.fillStyle=color; xs.forEach((x,i)=>{ctx.beginPath();ctx.arc(x,ys[i],2.5,0,Math.PI*2);ctx.fill();});
+}
+
+// ═══════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════
+let currentView='dashboard', currentBDRId=null, currentTab='overview';
+
+function showView(view, bdrId=null) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.bdr-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  if (view==='dashboard'||view==='settings') document.getElementById('nav-'+view).classList.add('active');
+  currentView=view; currentBDRId=bdrId;
+  if (view==='dashboard') renderDashboard();
+  if (view==='profile'&&bdrId) { renderProfile(bdrId); document.querySelector(`.bdr-item[data-id="${bdrId}"]`)?.classList.add('active'); }
+  if (view==='settings') renderSettings();
+}
+
+function showTab(tab) {
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+tab));
+}
+
+// ═══════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════
+function renderSidebar() {
+  const list=document.getElementById('bdrList');
+  list.innerHTML='';
+  if (!state.bdrs.length) { list.innerHTML=`<div style="padding:12px 10px;font-size:12px;color:var(--text3)">No reps yet.</div>`; return; }
+  state.bdrs.forEach(bdr=>{
+    const avg=avgKpi(bdr,'meetings');
+    const fl=state.floors.meetings;
+    const dot=avg===null?'var(--text3)':avg>=fl?'var(--green)':avg>=fl*.8?'var(--yellow)':'var(--red)';
+    const months=monthsIn(bdr.startDate);
+    const phase=bdr.phase||'Ramp';
+    const d=document.createElement('div');
+    d.className='bdr-item'; d.dataset.id=bdr.id;
+    if (currentBDRId===bdr.id) d.classList.add('active');
+    d.innerHTML=`
+      <div class="bdr-avatar" style="background:${bdr.color}22;color:${bdr.color}">${initials(bdr.name)}</div>
+      <div class="bdr-item-info">
+        <div class="bdr-item-name">${bdr.name}</div>
+        <div class="bdr-item-meta">${phase} · Mo ${months}</div>
+      </div>
+      <div class="bdr-status-dot" style="background:${dot}"></div>`;
+    d.onclick=()=>showView('profile',bdr.id);
+    list.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function renderDashboard() {
+  const bdrs=state.bdrs, fl=state.floors.meetings;
+  document.getElementById('dashSubtitle').textContent=`${bdrs.length} rep${bdrs.length!==1?'s':''} · Floor: ${fl} meetings/wk`;
+  const onTrack=bdrs.filter(b=>{const a=avgKpi(b,'meetings');return a!==null&&a>=fl;}).length;
+  const tMtg=bdrs.length?bdrs.reduce((s,b)=>s+(avgKpi(b,'meetings')||0),0)/bdrs.length:0;
+  const dashCutoff=new Date(); dashCutoff.setDate(dashCutoff.getDate()-28);
+  const tClosed=bdrs.reduce((s,b)=>s+((b.weeks||[]).filter(w=>new Date(w.weekStart)>=dashCutoff).reduce((ws,w)=>ws+(parseFloat(w.closed)||0),0)),0);
+  const ramp=bdrs.filter(b=>(b.phase||'Ramp')==='Ramp').length;
+  document.getElementById('dashGrid').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total Reps</div><div class="stat-value">${bdrs.length}</div><div class="stat-sub">${ramp} in Ramp</div></div>
+    <div class="stat-card"><div class="stat-label">On Track</div><div class="stat-value" style="color:var(--green)">${onTrack}</div><div class="stat-sub">≥${fl} mtgs/wk (4-wk avg)</div></div>
+    <div class="stat-card"><div class="stat-label">Below Floor</div><div class="stat-value" style="color:${bdrs.length-onTrack>0?'var(--red)':'var(--text)'}">${bdrs.length-onTrack}</div><div class="stat-sub">Need attention</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Mtgs Set</div><div class="stat-value">${fmtN(tMtg)}</div><div class="stat-sub">4-wk team avg</div></div>
+    <div class="stat-card"><div class="stat-label">$ Closed (Last 28 Days)</div><div class="stat-value" style="font-size:22px">${fmt$(Math.round(tClosed))}</div><div class="stat-sub">team total</div></div>`;
+  const tbody=document.getElementById('teamTableBody');
+  tbody.innerHTML='';
+  if (!bdrs.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">Add your first rep to get started.</td></tr>`; return; }
+  bdrs.forEach(bdr=>{
+    const months=monthsIn(bdr.startDate);
+    const phase=bdr.phase||'Ramp';
+    const avgM=avgKpi(bdr,'meetings'), avgC=avgKpi(bdr,'closed');
+    const pct=avgM!==null?((avgM/fl)*100).toFixed(0):null;
+    const pctColor=pct===null?'var(--text3)':pct>=100?'var(--green)':pct>=80?'var(--yellow)':'var(--red)';
+    const lastW=[...(bdr.weeks||[])].sort((a,b)=>new Date(b.weekStart)-new Date(a.weekStart))[0];
+    const flag=lastW?.flag||'—';
+    const fp=flag==='On Track'?'pill-green':flag==='Watch'?'pill-yellow':flag==='Needs Coaching'?'pill-red':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><div style="display:flex;align-items:center;gap:10px"><div class="bdr-avatar" style="width:28px;height:28px;font-size:11px;background:${bdr.color}22;color:${bdr.color}">${initials(bdr.name)}</div><span style="font-weight:600">${bdr.name}</span></div></td>
+      <td><span class="pill" style="background:${phaseColor(phase)}22;color:${phaseColor(phase)}">${phase}</span></td>
+      <td style="font-family:var(--mono)">${months}</td>
+      <td style="font-family:var(--mono)">${fmtN(avgM)}</td>
+      <td><span style="color:${pctColor};font-family:var(--mono);font-weight:600">${pct!==null?pct+'%':'—'}</span></td>
+      <td style="font-family:var(--mono)">${fmt$(avgC!==null?Math.round(avgC):null)}</td>
+      <td>${flag!=='—'?`<span class="pill ${fp}">${flag}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`;
+    tr.onclick=()=>showView('profile',bdr.id);
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════
+// PROFILE
+// ═══════════════════════════════════════
+function renderProfile(bdrId) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId);
+  if (!bdr) return;
+  const months=monthsIn(bdr.startDate);
+  const phase=bdr.phase||'Ramp';
+  const fl=state.floors.meetings;
+  const allWeeks=[...(bdr.weeks||[])].sort((a,b)=>new Date(b.weekStart)-new Date(a.weekStart));
+  const avgM4=avgKpi(bdr,'meetings',4);
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-28);
+  const last4Closed=(bdr.weeks||[]).filter(w=>new Date(w.weekStart)>=cutoff);
+  const totalClosed4=last4Closed.length?last4Closed.reduce((s,w)=>s+(parseFloat(w.closed)||0),0):null;
+  const allMVals=allWeeks.map(w=>parseFloat(w.meetings)||0).reverse();
+  const allCVals=allWeeks.map(w=>parseFloat(w.closed)||0).reverse();
+  const hasOverride=!!(bdr.milestonesOverride&&bdr.milestonesOverride.length);
+
+  const el=document.getElementById('profileContent');
+  el.innerHTML=`
+    <div class="profile-header">
+      <div class="profile-top">
+        <div class="profile-avatar" style="background:${bdr.color}22;color:${bdr.color}">${initials(bdr.name)}</div>
+        <div>
+          <div class="profile-name">${bdr.name}</div>
+          <div class="profile-meta">Started ${bdr.startDate?new Date(bdr.startDate).toLocaleDateString('en-US',{month:'long',year:'numeric'}):'Unknown'} · ${months} mo in</div>
+        </div>
+        <div class="profile-actions">
+          <div class="phase-select-wrap">
+            <span class="phase-select-label">Phase:</span>
+            <select class="phase-sel ${phase.toLowerCase()}" onchange="setPhase(${bdr.id},this.value)">
+              ${PHASES.map(p=>`<option value="${p}" ${phase===p?'selected':''}>${p}</option>`).join('')}
+            </select>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="openEditBDR(${bdr.id})">Edit</button>
+          <button class="btn btn-primary btn-sm" onclick="openAddWeek(${bdr.id})">+ Log Week</button>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">Meetings Set</div>
+          <div class="kpi-value" style="color:${avgM4!==null&&avgM4>=fl?'var(--green)':'var(--red)'}">${fmtN(avgM4)}</div>
+          <div class="kpi-avg">4-wk avg</div>
+          <div class="kpi-floor" style="color:${avgM4!==null&&avgM4>=fl?'var(--green)':'var(--yellow)'}">Floor: ${fl}/wk</div>
+          <canvas class="spark" id="sp-m-${bdr.id}"></canvas>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">$ Closed</div>
+          <div class="kpi-value" style="font-size:${totalClosed4!==null&&totalClosed4>=10000?'20px':'28px'}">${fmt$(totalClosed4!==null?Math.round(totalClosed4):null)}</div>
+          <div class="kpi-avg">total last 4 wks</div>
+          <canvas class="spark" id="sp-c-${bdr.id}"></canvas>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">All-Time Avg Mtgs</div>
+          <div class="kpi-value">${fmtN(allMVals.length?allMVals.reduce((a,b)=>a+b,0)/allMVals.length:null)}</div>
+          <div class="kpi-avg">${allWeeks.length} wk${allWeeks.length!==1?'s':''} logged</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total $ Closed</div>
+          <div class="kpi-value" style="font-size:20px">${fmt$(allCVals.reduce((a,b)=>a+b,0))}</div>
+          <div class="kpi-avg">all-time</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-tabs">
+      <button class="tab-btn active" data-tab="overview" onclick="showTab('overview')">Overview</button>
+      <button class="tab-btn" data-tab="milestones" onclick="showTab('milestones')">Milestones ${hasOverride?'<span style=\'color:var(--accent2);font-size:10px\'>●</span>':''}</button>
+      <button class="tab-btn" data-tab="log" onclick="showTab('log')">Weekly Log (${allWeeks.length})</button>
+    </div>
+
+    <div class="tab-content active" id="tab-overview">
+      ${renderTimelineHTML(bdr)}
+    </div>
+
+    <div class="tab-content" id="tab-milestones">
+      ${renderRepMilestoneEditor(bdr)}
+    </div>
+
+    <div class="tab-content" id="tab-log">
+      <div class="weeks-section">
+        <div class="weeks-header">
+          <div class="section-title" style="margin-bottom:0">Weekly Log</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddWeek(${bdr.id})">+ Log Week</button>
+        </div>
+        ${allWeeks.length===0
+          ?`<div style="text-align:center;padding:32px;color:var(--text3);font-size:13px">No weeks logged yet.</div>`
+          :allWeeks.map((w,i)=>weekEntryHTML(w,bdr.id,i===0)).join('')}
+      </div>
+    </div>
+  `;
+
+  requestAnimationFrame(()=>{
+    const cm=document.getElementById(`sp-m-${bdr.id}`);
+    const cc=document.getElementById(`sp-c-${bdr.id}`);
+    if(cm) drawSparkline(cm,allMVals,bdr.color||'#4f7cff',fl);
+    if(cc) drawSparkline(cc,allCVals,'#22c55e');
+  });
+}
+
+function setPhase(bdrId, phase) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId);
+  if (!bdr) return;
+  bdr.phase=phase;
+  saveData();
+  renderSidebar();
+  renderProfile(bdrId);
+  flash(`Phase set to ${phase}`);
+}
+
+// ── TIMELINE HTML ──
+function renderTimelineHTML(bdr) {
+  const months=monthsIn(bdr.startDate);
+  const ms=getRepMilestones(bdr);
+  if (!ms.length) return `<div style="padding:24px;color:var(--text3);font-size:13px">No milestones configured. Go to the Milestones tab.</div>`;
+
+  let html=`<div class="timeline-section">
+    <div class="timeline-section-header">
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:2px">Development Timeline</div>
+        <div style="font-size:12px;color:var(--text3)">Month ${months} in tenure</div>
+      </div>
+    </div>
+    <div class="phase-labels">
+      ${PHASES.filter(p=>ms.some(m=>m.phase===p)).map(p=>`<div class="phase-label-item"><div class="phase-dot" style="background:${phaseColor(p)}"></div>${p}</div>`).join('')}
+    </div>
+    <div class="milestone-track">`;
+
+  ms.forEach((m,i)=>{
+    const reached=months>=m.month;
+    const isCurrent=!reached&&(i===0||months>=ms[i-1].month);
+    const cls=reached?'reached':isCurrent?'current':'future';
+    const mc=phaseColor(m.phase);
+    html+=`<div class="tooltip-wrap">
+      <div class="milestone-dot ${cls}" style="${reached?`border-color:${mc};color:${mc};background:${mc}22`:isCurrent?`border-color:var(--accent);color:var(--accent2)`:''}">${reached?'✓':m.label}</div>
+      <div class="milestone-month">Mo ${m.month}</div>
+      <div class="milestone-phase-tag" style="color:${mc}">${m.phase}</div>
+      <div class="tooltip-tip"><strong>${m.phase} — Month ${m.month}</strong><br>Mtgs target: ${m.meetingsTarget}/wk<br>$ Closed target: ${fmt$(m.closedTarget)}<br>${m.notes||''}</div>
+    </div>`;
+  });
+
+  html+=`</div>`;
+
+  const nextMs=ms.find(m=>months<m.month);
+  if (nextMs) {
+    html+=`<div class="progress-details">
+      <div class="progress-detail-row"><span class="progress-detail-label">Next Milestone</span><span class="progress-detail-value">${nextMs.phase} · Month ${nextMs.month}</span></div>
+      <div class="progress-detail-row"><span class="progress-detail-label">Months Until Next</span><span class="progress-detail-value">${nextMs.month-months} mo</span></div>
+      <div class="progress-detail-row"><span class="progress-detail-label">Meetings Target</span><span class="progress-detail-value">${nextMs.meetingsTarget}/wk</span></div>
+      <div class="progress-detail-row"><span class="progress-detail-label">$ Closed Target</span><span class="progress-detail-value">${fmt$(nextMs.closedTarget)}</span></div>
+      ${nextMs.notes?`<div class="progress-detail-row"><span class="progress-detail-label">Focus</span><span class="progress-detail-value" style="font-family:var(--sans);font-size:12px;color:var(--text2)">${nextMs.notes}</span></div>`:''}
+    </div>`;
+  } else {
+    html+=`<div class="progress-details"><div class="progress-detail-row"><span class="progress-detail-label">Status</span><span class="progress-detail-value" style="color:var(--green)">All milestones reached ✓</span></div></div>`;
+  }
+  html+=`</div>`;
+  return html;
+}
+
+// ── REP MILESTONE EDITOR ──
+function renderRepMilestoneEditor(bdr) {
+  const hasOverride=!!(bdr.milestonesOverride&&bdr.milestonesOverride.length);
+  const ms=getRepMilestones(bdr);
+
+  let html=`<div class="ms-editor">
+    <div class="ms-editor-header">
+      <div>
+        <div class="ms-editor-title">Milestones for ${bdr.name}</div>
+        <div class="ms-override-note">${hasOverride?`<span class="overridden-badge">Custom override active</span> <button class="reset-override-btn" onclick="resetRepMilestones(${bdr.id})">Reset to global defaults</button>`:'Inheriting from global defaults — edit to create a custom override for this rep.'}</div>
+      </div>
+    </div>
+    <div id="repMsList-${bdr.id}">`;
+
+  ms.forEach((m,i)=>{
+    html+=repMsRowHTML(m,i,bdr.id);
+  });
+
+  html+=`</div>
+    <button class="add-ms-btn" onclick="addRepMilestone(${bdr.id})">+ Add Milestone</button>
+    <div style="margin-top:14px;display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="saveRepMilestones(${bdr.id})">Save Milestones</button>
+      ${hasOverride?`<button class="btn btn-ghost" onclick="resetRepMilestones(${bdr.id})">Reset to Defaults</button>`:''}
+    </div>
+  </div>`;
+  return html;
+}
+
+function repMsRowHTML(m,i,bdrId) {
+  return `<div class="ms-row" data-ms-id="${m.id}">
+    <div class="ms-row-label" style="color:${phaseColor(m.phase)}">Mo ${m.month}</div>
+    <div class="ms-field"><div class="ms-field-label">Month</div><input class="inp-sm" type="number" value="${m.month}" min="0" data-field="month" oninput="liveUpdateRepMs(${bdrId},'${m.id}','month',this.value)"></div>
+    <div class="ms-field"><div class="ms-field-label">Phase</div>
+      <select class="inp-sm" data-field="phase" onchange="liveUpdateRepMs(${bdrId},'${m.id}','phase',this.value)">
+        ${PHASES.map(p=>`<option value="${p}" ${m.phase===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+    </div>
+    <div class="ms-field"><div class="ms-field-label">Mtgs Target</div><input class="inp-sm" type="number" value="${m.meetingsTarget}" min="0" oninput="liveUpdateRepMs(${bdrId},'${m.id}','meetingsTarget',this.value)"></div>
+    <div class="ms-field"><div class="ms-field-label">$ Closed Target</div><input class="inp-sm wide" type="number" value="${m.closedTarget}" min="0" oninput="liveUpdateRepMs(${bdrId},'${m.id}','closedTarget',this.value)"></div>
+    <div class="ms-field" style="flex:1"><div class="ms-field-label">Notes</div><input class="inp-sm xwide" type="text" value="${m.notes||''}" placeholder="Focus area..." oninput="liveUpdateRepMs(${bdrId},'${m.id}','notes',this.value)"></div>
+    <button class="btn btn-danger btn-sm" onclick="removeRepMs(${bdrId},'${m.id}')">✕</button>
+  </div>`;
+}
+
+// temp staging for rep milestone edits before save
+let repMsStaging = {};
+
+function ensureRepMsStaging(bdrId) {
+  if (!repMsStaging[bdrId]) {
+    const bdr=state.bdrs.find(b=>b.id===bdrId);
+    repMsStaging[bdrId]=JSON.parse(JSON.stringify(getRepMilestones(bdr)));
+  }
+}
+
+function liveUpdateRepMs(bdrId, msId, field, val) {
+  ensureRepMsStaging(bdrId);
+  const m=repMsStaging[bdrId].find(x=>String(x.id)===String(msId));
+  if (!m) return;
+  if (field==='month'||field==='meetingsTarget'||field==='closedTarget') m[field]=parseFloat(val)||0;
+  else m[field]=val;
+}
+
+function addRepMilestone(bdrId) {
+  ensureRepMsStaging(bdrId);
+  const ms=repMsStaging[bdrId];
+  const maxM=ms.length?Math.max(...ms.map(m=>m.month)):0;
+  const newId='rm_'+Date.now();
+  ms.push({id:newId,month:maxM+2,phase:'Tenured',label:'M'+(maxM+2),meetingsTarget:25,closedTarget:0,notes:''});
+  const list=document.getElementById(`repMsList-${bdrId}`);
+  if (list) { const div=document.createElement('div'); div.innerHTML=repMsRowHTML(ms[ms.length-1],ms.length-1,bdrId); list.appendChild(div.firstElementChild); }
+}
+
+function removeRepMs(bdrId, msId) {
+  ensureRepMsStaging(bdrId);
+  repMsStaging[bdrId]=repMsStaging[bdrId].filter(m=>String(m.id)!==String(msId));
+  document.querySelector(`#repMsList-${bdrId} [data-ms-id="${msId}"]`)?.remove();
+}
+
+function saveRepMilestones(bdrId) {
+  ensureRepMsStaging(bdrId);
+  const bdr=state.bdrs.find(b=>b.id===bdrId);
+  bdr.milestonesOverride=repMsStaging[bdrId].sort((a,b)=>a.month-b.month).map(m=>({...m,label:'M'+m.month}));
+  delete repMsStaging[bdrId];
+  saveData();
+  renderProfile(bdrId);
+  showTab('milestones');
+  flash('Milestones saved ✓');
+}
+
+function resetRepMilestones(bdrId) {
+  if (!confirm('Reset to global defaults? Custom milestones for this rep will be lost.')) return;
+  const bdr=state.bdrs.find(b=>b.id===bdrId);
+  delete bdr.milestonesOverride;
+  delete repMsStaging[bdrId];
+  saveData();
+  renderProfile(bdrId);
+  showTab('milestones');
+  flash('Reset to global defaults');
+}
+
+// ── WEEKS ──
+function weekEntryHTML(w, bdrId, open=false) {
+  const fc=w.flag==='On Track'?'active-on-track':w.flag==='Watch'?'active-watch':w.flag==='Needs Coaching'?'active-needs-coaching':'';
+  const fp=w.flag==='On Track'?'pill-green':w.flag==='Watch'?'pill-yellow':w.flag==='Needs Coaching'?'pill-red':'';
+  return `<div class="week-entry${open?' open':''}" id="week-${w.id}">
+    <div class="week-entry-header" onclick="toggleWeek('week-${w.id}')">
+      <div class="week-label">${weekOf(w.weekStart)}</div>
+      ${w.flag?`<span class="pill ${fp}" style="font-size:10px">${w.flag}</span>`:''}
+      <div class="week-kpis">
+        <div class="week-kpi">${w.meetings??'—'} <span>mtgs</span></div>
+        <div class="week-kpi">${w.closed?fmt$(w.closed):'—'} <span>closed</span></div>
+      </div>
+      <span class="week-chevron">▶</span>
+    </div>
+    <div class="week-entry-body">
+      <div class="week-kpi-row">
+        <div class="week-kpi-group"><label>Meetings Set</label><input class="inp" type="number" id="wm-${w.id}" value="${w.meetings??''}" min="0"></div>
+        <div class="week-kpi-group"><label>$ Closed</label><input class="inp" type="number" id="wc-${w.id}" value="${w.closed??''}" min="0"></div>
+        <div class="week-kpi-group"><label>Week of</label><input class="inp" type="date" id="wd-${w.id}" value="${w.weekStart}"></div>
+      </div>
+      <div class="flag-row">
+        <span style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.07em">Flag:</span>
+        ${['On Track','Watch','Needs Coaching'].map(f=>`<button class="flag-btn ${w.flag===f?'active-'+f.toLowerCase().replace(/ /g,'-'):''}" onclick="setFlag('${w.id}',${bdrId},'${f}',this)">${f}</button>`).join('')}
+      </div>
+      <div style="margin-bottom:5px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">Coach Notes</div>
+      <textarea class="inp" id="wn-${w.id}" rows="3" placeholder="Performance notes, feedback, action items...">${w.notes??''}</textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-primary btn-sm" onclick="saveWeek('${w.id}',${bdrId})">Save</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteWeek('${w.id}',${bdrId})">Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleWeek(id) { document.getElementById(id)?.classList.toggle('open'); }
+
+function setFlag(weekId, bdrId, flag, btn) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId); if (!bdr) return;
+  const w=bdr.weeks.find(x=>x.id===weekId); if (!w) return;
+  w.flag=w.flag===flag?null:flag;
+  btn.closest('.flag-row').querySelectorAll('.flag-btn').forEach(b=>{
+    b.className='flag-btn'; const f=b.textContent;
+    if(f===w.flag) b.classList.add('active-'+f.toLowerCase().replace(/ /g,'-'));
+  });
+  saveData();
+}
+
+function saveWeek(weekId, bdrId) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId); if (!bdr) return;
+  const w=bdr.weeks.find(x=>x.id===weekId); if (!w) return;
+  w.meetings=parseFloat(document.getElementById(`wm-${weekId}`)?.value)||0;
+  w.closed=parseFloat(document.getElementById(`wc-${weekId}`)?.value)||0;
+  w.weekStart=document.getElementById(`wd-${weekId}`)?.value||w.weekStart;
+  w.notes=document.getElementById(`wn-${weekId}`)?.value||'';
+  saveData(); renderSidebar(); renderProfile(bdrId); showTab('log'); flash('Saved ✓');
+}
+
+function deleteWeek(weekId, bdrId) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId); if (!bdr) return;
+  bdr.weeks=bdr.weeks.filter(w=>w.id!==weekId);
+  saveData(); renderProfile(bdrId); renderSidebar(); showTab('log'); flash('Week deleted');
+}
+
+function openAddWeek(bdrId) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId); if (!bdr) return;
+  if (!bdr.weeks) bdr.weeks=[];
+  const today=new Date(), monday=new Date(today);
+  monday.setDate(today.getDate()-((today.getDay()+6)%7));
+  const wId='w'+Date.now();
+  bdr.weeks.push({id:wId,weekStart:monday.toISOString().split('T')[0],meetings:null,closed:null,notes:'',flag:null});
+  saveData(); renderProfile(bdrId); showTab('log');
+  requestAnimationFrame(()=>{
+    const el=document.getElementById(`week-${wId}`);
+    if(el){el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'center'});}
+  });
+}
+
+// ═══════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════
+function renderSettings() {
+  document.getElementById('floorMeetings').value=state.floors.meetings;
+  document.getElementById('floorClosed').value=state.floors.closed||0;
+  renderGlobalMsEditor();
+}
+
+function saveFloors() {
+  state.floors.meetings=parseInt(document.getElementById('floorMeetings').value)||25;
+  state.floors.closed=parseInt(document.getElementById('floorClosed').value)||0;
+  saveData(); flash('Floors saved ✓');
+}
+
+function renderGlobalMsEditor() {
+  const el=document.getElementById('globalMsEditor'); if (!el) return;
+  el.innerHTML='';
+  state.globalMilestones.forEach((m,i)=>{
+    const row=document.createElement('div');
+    row.className='global-ms-row'; row.dataset.msId=m.id;
+    row.innerHTML=`
+      <div style="font-size:12px;font-weight:600;color:${phaseColor(m.phase)};min-width:60px">Mo ${m.month}</div>
+      <div class="ms-field"><div class="ms-field-label">Month</div><input class="inp-sm" type="number" value="${m.month}" min="0" oninput="updateGlobalMs(${m.id},'month',this.value)"></div>
+      <div class="ms-field"><div class="ms-field-label">Phase</div>
+        <select class="inp-sm" onchange="updateGlobalMs(${m.id},'phase',this.value)">
+          ${PHASES.map(p=>`<option value="${p}" ${m.phase===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="ms-field"><div class="ms-field-label">Mtgs Target</div><input class="inp-sm" type="number" value="${m.meetingsTarget}" min="0" oninput="updateGlobalMs(${m.id},'meetingsTarget',this.value)"></div>
+      <div class="ms-field"><div class="ms-field-label">$ Closed Target</div><input class="inp-sm wide" type="number" value="${m.closedTarget}" min="0" oninput="updateGlobalMs(${m.id},'closedTarget',this.value)"></div>
+      <div class="ms-field" style="flex:1"><div class="ms-field-label">Notes</div><input class="inp-sm xwide" type="text" value="${m.notes||''}" placeholder="Focus area..." oninput="updateGlobalMs(${m.id},'notes',this.value)"></div>
+      <button class="btn btn-danger btn-sm" onclick="removeGlobalMs(${m.id})">✕</button>`;
+    el.appendChild(row);
+  });
+}
+
+function updateGlobalMs(id, field, val) {
+  const m=state.globalMilestones.find(x=>x.id===id); if (!m) return;
+  if (['month','meetingsTarget','closedTarget'].includes(field)) m[field]=parseFloat(val)||0;
+  else m[field]=val;
+}
+
+function addGlobalMilestone() {
+  const maxM=state.globalMilestones.length?Math.max(...state.globalMilestones.map(m=>m.month)):0;
+  const nId=Date.now();
+  state.globalMilestones.push({id:nId,month:maxM+2,phase:'Tenured',label:'M'+(maxM+2),meetingsTarget:25,closedTarget:0,notes:''});
+  renderGlobalMsEditor();
+}
+
+function removeGlobalMs(id) {
+  state.globalMilestones=state.globalMilestones.filter(m=>m.id!==id);
+  renderGlobalMsEditor();
+}
+
+function saveGlobalMilestones() {
+  state.globalMilestones.sort((a,b)=>a.month-b.month).forEach(m=>m.label='M'+m.month);
+  saveData(); flash('Global milestones saved ✓');
+}
+
+// ═══════════════════════════════════════
+// ADD / EDIT BDR
+// ═══════════════════════════════════════
+let _editBDRId=null;
+
+function renderSwatches(containerId, current) {
+  const row=document.getElementById(containerId); if (!row) return;
+  row.innerHTML='';
+  COLORS.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='swatch'+(c===current?' selected':'');
+    d.style.background=c;
+    d.onclick=()=>{ row.querySelectorAll('.swatch').forEach(s=>s.classList.remove('selected')); d.classList.add('selected'); };
+    row.appendChild(d);
+  });
+}
+
+function openAddBDR() {
+  const c=COLORS[Math.floor(Math.random()*COLORS.length)];
+  document.getElementById('newBDRName').value='';
+  document.getElementById('newBDRStart').value=new Date().toISOString().split('T')[0];
+  renderSwatches('addSwatchRow',c);
+  document.getElementById('addBDRModal').classList.add('open');
+}
+
+function confirmAddBDR() {
+  const name=document.getElementById('newBDRName').value.trim();
+  if (!name) { alert('Name required.'); return; }
+  const start=document.getElementById('newBDRStart').value;
+  const color=document.getElementById('addSwatchRow').querySelector('.selected')?.style.background||COLORS[0];
+  state.bdrs.push({id:state.nextId++,name,startDate:start,color,phase:'Ramp',weeks:[]});
+  saveData(); closeModal('addBDRModal'); renderSidebar(); renderDashboard(); flash(`${name} added ✓`);
+}
+
+function openEditBDR(bdrId) {
+  const bdr=state.bdrs.find(b=>b.id===bdrId); if (!bdr) return;
+  _editBDRId=bdrId;
+  document.getElementById('editBDRName').value=bdr.name;
+  document.getElementById('editBDRStart').value=bdr.startDate||'';
+  renderSwatches('editSwatchRow',bdr.color);
+  document.getElementById('editBDRModal').classList.add('open');
+}
+
+function confirmEditBDR() {
+  const bdr=state.bdrs.find(b=>b.id===_editBDRId); if (!bdr) return;
+  const name=document.getElementById('editBDRName').value.trim();
+  if (!name) { alert('Name required.'); return; }
+  bdr.name=name;
+  bdr.startDate=document.getElementById('editBDRStart').value;
+  bdr.color=document.getElementById('editSwatchRow').querySelector('.selected')?.style.background||bdr.color;
+  saveData(); closeModal('editBDRModal'); renderSidebar(); renderProfile(_editBDRId); flash('Saved ✓');
+}
+
+function deleteBDR() {
+  const bdr=state.bdrs.find(b=>b.id===_editBDRId); if (!bdr) return;
+  if (!confirm(`Delete ${bdr.name}? All their data will be lost.`)) return;
+  state.bdrs=state.bdrs.filter(b=>b.id!==_editBDRId);
+  saveData(); closeModal('editBDRModal'); renderSidebar(); showView('dashboard'); flash('Rep deleted');
+}
+
+
+// ═══════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().split('T')[0];
+  a.href = url; a.download = `bdr-crm-backup-${date}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  flash('Backup exported ✓');
+}
+
+function importData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.bdrs || !imported.floors) { alert('Invalid backup file.'); return; }
+      if (!confirm(`Import backup? This will replace all current data with ${imported.bdrs.length} rep(s) from the file.`)) return;
+      state = imported;
+      saveData();
+      renderSidebar();
+      showView('dashboard');
+      flash(`Imported ${imported.bdrs.length} rep(s) ✓`);
+    } catch(err) { alert('Could not read file. Make sure it\'s a valid BDR Manager backup.'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+renderSidebar();
+renderDashboard();
+</script>
+</body>
+</html>
